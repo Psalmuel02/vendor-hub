@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  APPROVER
+  VENDOR
+}
+
+enum VendorStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum DocumentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ApprovalType {
+  ONBOARDING
+  DOCUMENT
+  CHECKLIST
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  vendor    Vendor?
+  createdAt DateTime @default(now())
+}
+
+model VendorCategory {
+  id                 String              @id @default(cuid())
+  name               String              @unique
+  vendors            Vendor[]
+  checklistTemplates ChecklistTemplate[]
+}
+
+model Vendor {
+  id                 String               @id @default(cuid())
+  userId             String               @unique
+  user               User                 @relation(fields: [userId], references: [id])
+  companyName        String
+  categoryId         String
+  category           VendorCategory       @relation(fields: [categoryId], references: [id])
+  status             VendorStatus         @default(PENDING)
+  phone              String?
+  address            String?
+  complianceScore    Float?
+  documents          ComplianceDocument[]
+  checklistResponses ChecklistResponse[]
+  performanceReviews PerformanceReview[]
+  approvalRequests   ApprovalRequest[]
+  createdAt          DateTime             @default(now())
+}
+
+model ComplianceDocument {
+  id           String         @id @default(cuid())
+  vendorId     String
+  vendor       Vendor         @relation(fields: [vendorId], references: [id])
+  type         String
+  fileUrl      String
+  expiryDate   DateTime?
+  status       DocumentStatus @default(PENDING_REVIEW)
+  reviewedById String?
+  reviewedAt   DateTime?
+  comment      String?
+  createdAt    DateTime       @default(now())
+}
+
+model ChecklistTemplate {
+  id         String          @id @default(cuid())
+  name       String
+  categoryId String?
+  category   VendorCategory? @relation(fields: [categoryId], references: [id])
+  items      ChecklistItem[]
+  createdAt  DateTime        @default(now())
+}
+
+model ChecklistItem {
+  id         String            @id @default(cuid())
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
+  label      String
+  weight     Int               @default(1)
+}
+
+model ChecklistResponse {
+  id          String         @id @default(cuid())
+  vendorId    String
+  vendor      Vendor         @relation(fields: [vendorId], references: [id])
+  templateId  String
+  answers     Json
+  totalScore  Float?
+  scoredById  String?
+  status      ApprovalStatus @default(PENDING)
+  submittedAt DateTime       @default(now())
+}
+
+model KpiTemplate {
+  id     String @id @default(cuid())
+  name   String
+  weight Int    @default(1)
+}
+
+model PerformanceReview {
+  id           String   @id @default(cuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id])
+  period       String
+  scores       Json
+  overallScore Float
+  reviewedById String
+  comment      String?
+  createdAt    DateTime @default(now())
+}
+
+model ApprovalRequest {
+  id          String         @id @default(cuid())
+  vendorId    String
+  vendor      Vendor         @relation(fields: [vendorId], references: [id])
+  type        ApprovalType
+  refId       String
+  status      ApprovalStatus @default(PENDING)
+  decidedById String?
+  comment     String?
+  createdAt   DateTime       @default(now())
+  decidedAt   DateTime?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
